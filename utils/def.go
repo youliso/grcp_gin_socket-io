@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	socketio "github.com/googollee/go-socket.io"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"grpc/cfg"
 	"net/http"
 )
@@ -43,4 +47,68 @@ func Cors() gin.HandlerFunc {
 		// 处理请求
 		c.Next()
 	}
+}
+
+// auth 验证Token
+func Auth(ctx context.Context, info *grpc.UnaryServerInfo) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return errors.New("无Token认证信息")
+	}
+
+	var (
+		appid  string
+		appkey string
+	)
+
+	if val, ok := md["appid"]; ok {
+		appid = val[0]
+	}
+
+	if val, ok := md["appkey"]; ok {
+		appkey = val[0]
+	}
+
+	if appid != "101010" || appkey != "i am key" {
+		return errors.New("Token认证信息无效")
+	}
+
+	return nil
+}
+
+func SocketIo() *socketio.Server {
+	io, err := socketio.NewServer(nil)
+	if err != nil {
+		panic(err.Error())
+	}
+	//io.set('transports', ['websocket', 'xhr-polling', 'jsonp-polling', 'htmlfile', 'flashsocket']);
+	io.OnConnect("/", func(s socketio.Conn) error {
+		s.SetContext("")
+		fmt.Println("connected:", s.ID())
+		return nil
+	})
+	io.OnEvent("/", "notice", func(s socketio.Conn, msg string) {
+		fmt.Println("notice:", msg)
+		s.Emit("reply", "have "+msg)
+	})
+	io.OnEvent("/chat", "msg", func(s socketio.Conn, msg string) string {
+		s.SetContext(msg)
+		return "recv " + msg
+	})
+	io.OnEvent("/", "bye", func(s socketio.Conn) string {
+		last := s.Context().(string)
+		s.Emit("bye", last)
+		s.Close()
+		return last
+	})
+	io.OnError("/", func(s socketio.Conn, e error) {
+		fmt.Println("meet error:", e)
+	})
+	io.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		fmt.Println("closed", reason)
+	})
+	go io.Serve()
+	defer io.Close()
+
+	return io
 }

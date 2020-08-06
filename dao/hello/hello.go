@@ -1,10 +1,9 @@
-package controller
+package hello
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"google.golang.org/grpc"
+	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/metadata"
 	pb "grpc/protos/hello"
 	"grpc/utils"
@@ -23,7 +22,7 @@ func (h *HelloService) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.H
 	return &pb.HelloResponse{Message: "Hello " + in.Name}, nil
 }
 
-func Hello() {
+func GrpcHello() {
 	conn, err := utils.Conn("127.0.0.1:3000")
 	if err != nil {
 		println(err.Error())
@@ -37,29 +36,8 @@ func Hello() {
 	fmt.Println(res)
 }
 
-// auth 验证Token
-func Auth(ctx context.Context, info *grpc.UnaryServerInfo) error {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return errors.New("无Token认证信息")
-	}
-
-	var (
-		appid  string
-		appkey string
-	)
-
-	if val, ok := md["appid"]; ok {
-		appid = val[0]
-	}
-
-	if val, ok := md["appkey"]; ok {
-		appkey = val[0]
-	}
-
-	if appid != "101010" || appkey != "i am key" {
-		return errors.New("Token认证信息无效")
-	}
-
-	return nil
+func HttpHello(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"message": c.Query("name"),
+	})
 }
