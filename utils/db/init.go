@@ -8,9 +8,9 @@ func Init() {
 	for i := 0; i < len(cfg.Db); i++ {
 		switch cfg.Db[i].Ty {
 		case "mysql":
-			InitMysql(string(i), cfg.Db[i].Uri, cfg.Db[i].MysqlMaxOpenConns, cfg.Db[i].MysqlMaxIdleConns)
+			InitMysql(cfg.Db[i].Name, cfg.Db[i].Uri, cfg.Db[i].MysqlMaxOpenConns, cfg.Db[i].MysqlMaxIdleConns)
 		case "redis":
-			InitRedis(string(i), cfg.Db[i].Uri, cfg.Db[i].Pwd, cfg.Db[i].RedisMaxIdle, cfg.Db[i].RedisIdleTimeoutSec)
+			InitRedis(cfg.Db[i].Name, cfg.Db[i].Uri, cfg.Db[i].Pwd, cfg.Db[i].RedisMaxIdle, cfg.Db[i].RedisIdleTimeoutSec)
 		}
 	}
 }

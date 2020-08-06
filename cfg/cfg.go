@@ -14,12 +14,14 @@ const (
 var Db = []Dbt{
 	{
 		Ty:                "mysql",
-		Uri:               "bf:a3yPhPKCY47c8tch@tcp(175.24.76.246:3306)/bf?parseTime=true&loc=Local&charset=utf8mb4",
+		Name:              "md1",
+		Uri:               "root:pwd@tcp(127.0.0.1:3306)/bf?parseTime=true&loc=Local&charset=utf8mb4",
 		MysqlMaxOpenConns: 100,
 		MysqlMaxIdleConns: 10,
 	},
 	{
 		Ty:                  "redis",
+		Name:                "md2",
 		Uri:                 "redis://127.0.0.1:6379",
 		Pwd:                 "",
 		RedisMaxIdle:        3,                 //最大空闲连接数
@@ -29,6 +31,7 @@ var Db = []Dbt{
 
 type Dbt struct {
 	Ty                  string
+	Name                string
 	Uri                 string
 	Pwd                 string
 	MysqlMaxOpenConns   int
