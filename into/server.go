@@ -3,47 +3,45 @@ package into
 import (
 	"context"
 	"fmt"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/gin-gonic/gin"
+	"github.com/googollee/go-socket.io"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"grpc/cfg"
 	"grpc/controller"
-	gw "grpc/protos/hello"
 	pb "grpc/protos/hello"
+	"grpc/utils"
 	"net"
 	"net/http"
 )
 
 func Run() {
-	var ins = make(chan int)
-	num := 2
-	go func() {
-		Tpc()
-		ins <- 1
-	}()
-	go func() {
-		Http()
-		ins <- 1
-	}()
-	for range ins {
-		num--
-		if num == 0 {
-			close(ins)
-		}
+	lis, err := net.Listen("tcp", cfg.Uri)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	m := cmux.New(lis)
+	httpl := m.Match(cmux.HTTP1Fast())
+	grpcl := m.Match(cmux.Any())
+	go Tpc(grpcl)
+	go GinOrSocketIo(httpl)
+
+	fmt.Println("Listen on " + cfg.Uri)
+	if err := m.Serve(); err != nil {
+		panic(err)
 	}
 }
 
-func Tpc() {
+func Tpc(lin net.Listener) {
 	var creds credentials.TransportCredentials
 	var s *grpc.Server
 	var opts []grpc.ServerOption
-
+	var err error
 	//拦截器
 	interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		fmt.Println("init")
-		fmt.Println(info.FullMethod)
-
-		err = controller.Auth(ctx)
+		err = controller.Auth(ctx, info)
 		if err != nil {
 			return
 		}
@@ -51,47 +49,69 @@ func Tpc() {
 		return handler(ctx, req)
 	}
 	opts = append(opts, grpc.UnaryInterceptor(interceptor))
-
-	lis, err := net.Listen("tcp", cfg.Address)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
 	if cfg.OpenTLS {
 		// TLS认证
 		creds, err = credentials.NewServerTLSFromFile("./cfg/keys/server.pem", "./cfg/keys/server.key")
 		if err != nil {
-			fmt.Errorf("Failed to generate credentials %v", err)
+			panic(err.Error())
 		}
 		opts = append(opts, grpc.Creds(creds))
 	}
-
 	s = grpc.NewServer(opts...)
-
 	pb.RegisterHelloServer(s, &controller.HelloService{})
-	fmt.Println("RPC Listen on " + cfg.Address)
-	if err := s.Serve(lis); err != nil {
-		fmt.Errorf("Failed to %v", err)
+	if err := s.Serve(lin); err != nil {
+		panic(err.Error())
 	}
 }
 
-func Http() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// grpc服务地址
-	endpoint := cfg.Address
-	mux := runtime.NewServeMux()
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-
-	// HTTP转grpc
-	err := gw.RegisterHelloHandlerFromEndpoint(ctx, mux, endpoint, opts)
+func GinOrSocketIo(lin net.Listener) {
+	r := gin.New()
+	r.Use(utils.Cors())
+	io, err := socketio.NewServer(nil)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	fmt.Println("HTTP Listen on " + cfg.AddressHttp)
-	if err := http.ListenAndServe(cfg.AddressHttp, mux); err != nil {
+	//io.set('transports', ['websocket', 'xhr-polling', 'jsonp-polling', 'htmlfile', 'flashsocket']);
+	io.OnConnect("/", func(s socketio.Conn) error {
+		s.SetContext("")
+		fmt.Println("connected:", s.ID())
+		return nil
+	})
+	io.OnEvent("/", "notice", func(s socketio.Conn, msg string) {
+		fmt.Println("notice:", msg)
+		s.Emit("reply", "have "+msg)
+	})
+	io.OnEvent("/chat", "msg", func(s socketio.Conn, msg string) string {
+		s.SetContext(msg)
+		return "recv " + msg
+	})
+	io.OnEvent("/", "bye", func(s socketio.Conn) string {
+		last := s.Context().(string)
+		s.Emit("bye", last)
+		s.Close()
+		return last
+	})
+	io.OnError("/", func(s socketio.Conn, e error) {
+		fmt.Println("meet error:", e)
+	})
+	io.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		fmt.Println("closed", reason)
+	})
+	go io.Serve()
+	defer io.Close()
+
+	r.GET("/socket.io/*any", gin.WrapH(io))
+	r.POST("/socket.io/*any", gin.WrapH(io))
+
+	r.GET("/http", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": c.Query("name"),
+		})
+	})
+	s := &http.Server{
+		Handler: r,
+	}
+	if err := s.Serve(lin); err != cmux.ErrListenerClosed {
 		panic(err)
 	}
 }

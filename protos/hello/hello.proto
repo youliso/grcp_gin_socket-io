@@ -4,29 +4,10 @@ package hello;     // 指定默认包名
 // 指定golang包名
 option go_package = "hello";
 
-import "google/api/annotations.proto";
-
 // 定义Hello服务
 service Hello {
   // 定义SayHello方法
   rpc SayHello(HelloRequest) returns (HelloResponse) {}
-
-  // 定义SayHello1方法
-  rpc SayHello1(HelloHTTPRequest) returns (HelloHTTPResponse) {
-    // http option
-    option (google.api.http) = {
-      post: "/example/echo"
-      body: "*"
-    };
-  }
-  // 定义SayHello2方法
-  rpc SayHello2(HelloHTTPRequest) returns (HelloHTTPResponse) {
-    // http option
-    option (google.api.http) = {
-      get: "/example/echo"
-    };
-  }
-
 }
 
 // HelloRequest 请求结构
@@ -36,16 +17,5 @@ message HelloRequest {
 
 // HelloResponse 响应结构
 message HelloResponse {
-  string message = 1;
-}
-
-
-// HelloRequest 请求结构
-message HelloHTTPRequest {
-  string name = 1;
-}
-
-// HelloResponse 响应结构
-message HelloHTTPResponse {
   string message = 1;
 }
