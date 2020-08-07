@@ -15,7 +15,7 @@ var Db = []Dbt{
 	{
 		Ty:                "mysql",
 		Name:              "md1",
-		Uri:               "root:pwd@tcp(127.0.0.1:3306)/bf?parseTime=true&loc=Local&charset=utf8mb4",
+		Uri:               "root:pwd@tcp(127.0.0.1:3306)/db?parseTime=true&loc=Local&charset=utf8mb4",
 		MysqlMaxOpenConns: 100,
 		MysqlMaxIdleConns: 10,
 	},

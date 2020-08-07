@@ -45,7 +45,7 @@ func gRpc(lin net.Listener) {
 	var err error
 	//拦截器
 	interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		err = utils.Auth(ctx, info)
+		err = utils.GrpcAuth(ctx, info)
 		if err != nil {
 			return
 		}
@@ -70,7 +70,7 @@ func gRpc(lin net.Listener) {
 
 func ginOrSocketIo(lin net.Listener) {
 	r := gin.New()
-	r.Use(utils.Cors())
+	r.Use(utils.GinAuth)
 	r.GET("/socket.io/*any", gin.WrapH(utils.SocketIo()))
 	r.POST("/socket.io/*any", gin.WrapH(utils.SocketIo()))
 	routers.GinRouters(r)

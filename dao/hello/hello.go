@@ -7,6 +7,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	pb "grpc/protos/hello"
 	"grpc/utils"
+	"grpc/utils/db/mysql"
+	"reflect"
+	"time"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -37,7 +40,23 @@ func GrpcHello() {
 }
 
 func HttpHello(c *gin.Context) {
+	rows, err := mysql.Query("md1", "select * from table", reflect.TypeOf(new(test)).Elem())
+	if err != nil {
+		println(err.Error())
+	}
 	c.JSON(200, gin.H{
 		"message": c.Query("name"),
+		"data":    rows,
 	})
+}
+
+type test struct {
+	Id           int       `column:"id"`
+	JsTemplate   string    `column:"js_template"`
+	Title        string    `column:"title"`
+	Img          string    `column:"img"`
+	Introduction string    `column:"introduction"`
+	Html         string    `column:"html"`
+	Vk           string    `column:"value_key"`
+	Ct           time.Time `column:"creation_time"`
 }
