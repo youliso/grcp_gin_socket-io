@@ -27,6 +27,15 @@ var Db = []Dbt{
 		RedisMaxIdle:        3,                 //最大空闲连接数
 		RedisIdleTimeoutSec: time.Second * 240, //最大空闲连接时间
 	},
+	//{
+	//	Ty:             "mongo",
+	//	Name:           "md3",
+	//	Database:       "admin",
+	//	Uri:            "127.0.0.1:27017",
+	//	Pwd:            "",
+	//	MonMaxPoolSize: 4096,
+	//	MonTimeoutSec:  60 * time.Second,
+	//},
 }
 
 type Dbt struct {
@@ -34,8 +43,11 @@ type Dbt struct {
 	Name                string
 	Uri                 string
 	Pwd                 string
+	Database            string
 	MysqlMaxOpenConns   int
 	MysqlMaxIdleConns   int
 	RedisMaxIdle        int
 	RedisIdleTimeoutSec time.Duration
+	MonMaxPoolSize      int
+	MonTimeoutSec       time.Duration
 }

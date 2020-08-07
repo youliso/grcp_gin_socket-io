@@ -2,6 +2,7 @@ package db
 
 import (
 	"grpc/cfg"
+	"grpc/utils/db/mongo"
 	"grpc/utils/db/mysql"
 	"grpc/utils/db/redis"
 )
@@ -13,7 +14,8 @@ func Init() {
 			mysql.InitMysql(cfg.Db[i].Name, cfg.Db[i].Uri, cfg.Db[i].MysqlMaxOpenConns, cfg.Db[i].MysqlMaxIdleConns)
 		case "redis":
 			redis.InitRedis(cfg.Db[i].Name, cfg.Db[i].Uri, cfg.Db[i].Pwd, cfg.Db[i].RedisMaxIdle, cfg.Db[i].RedisIdleTimeoutSec)
+		case "mongo":
+			mongo.InitMongo(cfg.Db[i].Name, cfg.Db[i].Database, cfg.Db[i].Uri, cfg.Db[i].Name, cfg.Db[i].Pwd, cfg.Db[i].MonMaxPoolSize, cfg.Db[i].MonTimeoutSec)
 		}
 	}
-
 }
