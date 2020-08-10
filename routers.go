@@ -1,10 +1,10 @@
-package routers
+package main
 
 import (
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
-	"grpc/dao/hello"
 	pb "grpc/protos/hello"
+	"grpc/service/hello"
 )
 
 func GrpcRouters(s *grpc.Server) {

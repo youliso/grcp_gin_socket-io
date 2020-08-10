@@ -15,7 +15,7 @@ func Init() {
 		case "redis":
 			redis.InitRedis(cfg.Db[i].Name, cfg.Db[i].Uri, cfg.Db[i].Pwd, cfg.Db[i].RedisMaxIdle, cfg.Db[i].RedisIdleTimeoutSec)
 		case "mongo":
-			mongo.InitMongo(cfg.Db[i].Name, cfg.Db[i].Database, cfg.Db[i].Uri, cfg.Db[i].Name, cfg.Db[i].Pwd, cfg.Db[i].MonMaxPoolSize, cfg.Db[i].MonTimeoutSec)
+			mongo.InitMongo(cfg.Db[i].Name, cfg.Db[i].Uri, &cfg.Db[i].MonMaxPoolSize)
 		}
 	}
 }

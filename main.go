@@ -8,15 +8,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"grpc/cfg"
-	"grpc/routers"
 	"grpc/utils"
-	"grpc/utils/db"
 	"net"
 	"net/http"
 )
 
 func main() {
-	db.Init()
+	//db.Init()
 	run()
 }
 
@@ -62,7 +60,7 @@ func gRpc(lin net.Listener) {
 		opts = append(opts, grpc.Creds(creds))
 	}
 	s = grpc.NewServer(opts...)
-	routers.GrpcRouters(s)
+	GrpcRouters(s)
 	if err := s.Serve(lin); err != nil {
 		panic(err.Error())
 	}
@@ -73,7 +71,7 @@ func ginOrSocketIo(lin net.Listener) {
 	r.Use(utils.GinAuth)
 	r.GET("/socket.io/*any", gin.WrapH(utils.SocketIo()))
 	r.POST("/socket.io/*any", gin.WrapH(utils.SocketIo()))
-	routers.GinRouters(r)
+	GinRouters(r)
 	s := &http.Server{
 		Handler: r,
 	}

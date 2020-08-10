@@ -1,255 +1,103 @@
 package mongo
 
 import (
-	"gopkg.in/mgo.v2"
-	"log"
-	"time"
+	"context"
+	"github.com/qiniu/qmgo"
 )
 
-var mMd = make(map[string]*mgo.Session, 0)
+type mgoS struct {
+	db  *qmgo.Client
+	ctx *context.Context
+}
 
-func InitMongo(DbName, database, uri, name, pwd string, maxPoolSize int, timeout time.Duration) {
-	dialInfo := &mgo.DialInfo{
-		Addrs:     []string{uri},
-		Timeout:   timeout,
-		Source:    database,
-		Username:  name,
-		Password:  pwd,
-		PoolLimit: maxPoolSize,
-	}
-	s, err := mgo.DialWithInfo(dialInfo)
+var mMd = make(map[string]mgoS, 0)
+
+func InitMongo(DbName, uri string, maxPoolSize *uint64) {
+	ctx := context.Background()
+	client, err := qmgo.NewClient(ctx, &qmgo.Config{
+		Uri:         uri,
+		MaxPoolSize: maxPoolSize,
+	})
 	if err != nil {
 		println(err.Error())
 	}
-	mMd[DbName] = s
-}
-
-func connect(DbName, db, collection string) (*mgo.Session, *mgo.Collection) {
-	ms := mMd[DbName].Copy()
-	c := ms.DB(db).C(collection)
-	ms.SetMode(mgo.Monotonic, true)
-	return ms, c
-}
-
-func getDb(DbName, db string) (*mgo.Session, *mgo.Database) {
-	ms := mMd[DbName].Copy()
-	return ms, ms.DB(db)
-}
-
-func IsEmpty(DbName, db, collection string) bool {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	count, err := c.Count()
-	if err != nil {
-		log.Fatal(err)
+	mMd[DbName] = mgoS{
+		db:  client,
+		ctx: &ctx,
 	}
-	return count == 0
 }
 
-func Count(DbName, db, collection string, query interface{}) (int, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	return c.Find(query).Count()
+func connect(DbName, db string) (*qmgo.Database, *context.Context) {
+	ms := mMd[DbName].db.Database(db)
+	return ms, mMd[DbName].ctx
 }
 
-func Insert(DbName, db, collection string, docs ...interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
+func Count(DbName, db, collection string, query interface{}) (int64, error) {
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	//defer ms.Close()
+	return coll.Find(*ctx, query).Count()
+}
 
-	return c.Insert(docs...)
+func InsertOne(DbName, db, collection string, doc interface{}) (*qmgo.InsertOneResult, error) {
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.InsertOne(*ctx, doc)
+}
+
+func InsertMany(DbName, db, collection string, docs ...interface{}) (*qmgo.InsertManyResult, error) {
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.InsertMany(*ctx, docs)
 }
 
 func FindOne(DbName, db, collection string, query, selector, result interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Find(query).Select(selector).One(result)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.Find(*ctx, query).Select(selector).One(result)
 }
 
 func FindAll(DbName, db, collection string, query, selector, result interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Find(query).Select(selector).All(result)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.Find(*ctx, query).Select(selector).All(result)
 }
 
-func FindPage(DbName, db, collection string, page, limit int, query, selector, result interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Find(query).Select(selector).Skip(page * limit).Limit(limit).All(result)
-}
-
-func FindIter(DbName, db, collection string, query interface{}) *mgo.Iter {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Find(query).Iter()
+func FindPage(DbName, db, collection string, page, limit int64, query, selector, result interface{}) error {
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.Find(*ctx, query).Select(selector).Skip(page * limit).Limit(limit).All(result)
 }
 
 func Update(DbName, db, collection string, selector, update interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Update(selector, update)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.Update(*ctx, selector, update)
 }
 
 func Upsert(DbName, db, collection string, selector, update interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	_, err := c.Upsert(selector, update)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	_, err := coll.Upsert(*ctx, selector, update)
 	return err
 }
 
 func UpdateAll(DbName, db, collection string, selector, update interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	_, err := c.UpdateAll(selector, update)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	_, err := coll.UpdateAll(*ctx, selector, update)
 	return err
 }
 
 func Remove(DbName, db, collection string, selector interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	return c.Remove(selector)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	return coll.Remove(*ctx, selector)
 }
 
 func RemoveAll(DbName, db, collection string, selector interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	_, err := c.RemoveAll(selector)
+	ms, ctx := connect(DbName, db)
+	coll := ms.Collection(collection)
+	_, err := coll.DeleteAll(*ctx, selector)
 	return err
-}
-
-//insert one or multi documents
-func BulkInsert(DbName, db, collection string, docs ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	bulk := c.Bulk()
-	bulk.Insert(docs...)
-	return bulk.Run()
-}
-
-func BulkRemove(DbName, db, collection string, selector ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-
-	bulk := c.Bulk()
-	bulk.Remove(selector...)
-	return bulk.Run()
-}
-
-func BulkRemoveAll(DbName, db, collection string, selector ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	bulk := c.Bulk()
-	bulk.RemoveAll(selector...)
-	return bulk.Run()
-}
-
-func BulkUpdate(DbName, db, collection string, pairs ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	bulk := c.Bulk()
-	bulk.Update(pairs...)
-	return bulk.Run()
-}
-
-func BulkUpdateAll(DbName, db, collection string, pairs ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	bulk := c.Bulk()
-	bulk.UpdateAll(pairs...)
-	return bulk.Run()
-}
-
-func BulkUpsert(DbName, db, collection string, pairs ...interface{}) (*mgo.BulkResult, error) {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	bulk := c.Bulk()
-	bulk.Upsert(pairs...)
-	return bulk.Run()
-}
-
-func PipeAll(DbName, db, collection string, pipeline, result interface{}, allowDiskUse bool) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	var pipe *mgo.Pipe
-	if allowDiskUse {
-		pipe = c.Pipe(pipeline).AllowDiskUse()
-	} else {
-		pipe = c.Pipe(pipeline)
-	}
-	return pipe.All(result)
-}
-
-func PipeOne(DbName, db, collection string, pipeline, result interface{}, allowDiskUse bool) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	var pipe *mgo.Pipe
-	if allowDiskUse {
-		pipe = c.Pipe(pipeline).AllowDiskUse()
-	} else {
-		pipe = c.Pipe(pipeline)
-	}
-	return pipe.One(result)
-}
-
-func PipeIter(DbName, db, collection string, pipeline interface{}, allowDiskUse bool) *mgo.Iter {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	var pipe *mgo.Pipe
-	if allowDiskUse {
-		pipe = c.Pipe(pipeline).AllowDiskUse()
-	} else {
-		pipe = c.Pipe(pipeline)
-	}
-
-	return pipe.Iter()
-
-}
-
-func Explain(DbName, db, collection string, pipeline, result interface{}) error {
-	ms, c := connect(DbName, db, collection)
-	defer ms.Close()
-	pipe := c.Pipe(pipeline)
-	return pipe.Explain(result)
-}
-func GridFSCreate(DbName, db, prefix, name string) (*mgo.GridFile, error) {
-	ms, d := getDb(DbName, db)
-	defer ms.Close()
-	gridFs := d.GridFS(prefix)
-	return gridFs.Create(name)
-}
-
-func GridFSFindOne(DbName, db, prefix string, query, result interface{}) error {
-	ms, d := getDb(DbName, db)
-	defer ms.Close()
-	gridFs := d.GridFS(prefix)
-	return gridFs.Find(query).One(result)
-}
-
-func GridFSFindAll(DbName, db, prefix string, query, result interface{}) error {
-	ms, d := getDb(DbName, db)
-	defer ms.Close()
-	gridFs := d.GridFS(prefix)
-	return gridFs.Find(query).All(result)
-}
-
-func GridFSOpen(DbName, db, prefix, name string) (*mgo.GridFile, error) {
-	ms, d := getDb(DbName, db)
-	defer ms.Close()
-	gridFs := d.GridFS(prefix)
-	return gridFs.Open(name)
-}
-
-func GridFSRemove(DbName, db, prefix, name string) error {
-	ms, d := getDb(DbName, db)
-	defer ms.Close()
-	gridFs := d.GridFS(prefix)
-	return gridFs.Remove(name)
 }
